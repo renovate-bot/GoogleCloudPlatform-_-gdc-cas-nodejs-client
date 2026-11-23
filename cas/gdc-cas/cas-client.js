@@ -43,6 +43,23 @@ const DEFAULT_CERT_REQ_TIMEOUT_MS = 30000; // 30 seconds
 const DEFAULT_CERT_REQ_POLLING_INTERVAL_MS = 200; // 0.2 seconds
 const DEFAULT_REVOKE_REQ_TIMEOUT_MS = 60000; // 60 seconds
 
+// Default gRPC built-in retry policy for transient CAS proxy failures (https://grpc.io/docs/guides/retry/).
+// Narrowed to UNAVAILABLE and RESOURCE_EXHAUSTED to avoid retrying non-idempotent side effects
+// (e.g., duplicate certificate issuance or already-revoked errors on INTERNAL/DEADLINE_EXCEEDED).
+const DEFAULT_GRPC_RETRY_POLICY = {
+  maxAttempts: 4,
+  initialBackoff: '0.1s',
+  maxBackoff: '1s',
+  backoffMultiplier: 2,
+  retryableStatusCodes: ['UNAVAILABLE', 'RESOURCE_EXHAUSTED'],
+};
+
+// Default gRPC retry throttling (gRFC A6) to circuit-break retries during sustained outages.
+const DEFAULT_GRPC_RETRY_THROTTLING = {
+  maxTokens: 10,
+  tokenRatio: 0.1,
+};
+
 
 const packageDefinition = protoLoader.fromJSON(casProtoRoot, {
   keepCase: true,
@@ -219,7 +236,34 @@ export class CASClient {
         credentials = grpc.credentials.createSsl();
       }
       const targetUrl = this.config.casProxyUrl.replace(/^https?:\/\//, '');
-      this.grpcClient = new pkiProto.CertificateAuthorityService(targetUrl, credentials);
+      // Retries are on by default; set config.grpcRetries to false to disable them
+      // completely (NO_RETRY), or pass config.grpcRetryPolicy to override individual fields.
+      let channelOptions;
+      if (this.config.grpcRetries === false) {
+        channelOptions = { 'grpc.enable_retries': 0 };
+      } else {
+        const retryPolicyOverrides = this.config.grpcRetryPolicy
+          ? Object.fromEntries(
+              Object.entries(this.config.grpcRetryPolicy).filter(([, v]) => v !== undefined)
+            )
+          : {};
+        const retryPolicy = { ...DEFAULT_GRPC_RETRY_POLICY, ...retryPolicyOverrides };
+        channelOptions = {
+          'grpc.enable_retries': 1,
+          // Raise gRFC A6's default cap of 5 attempts when a higher maxAttempts is requested.
+          'grpc-node.retry_max_attempts_limit': Number.isInteger(retryPolicy.maxAttempts)
+            ? Math.max(5, retryPolicy.maxAttempts)
+            : 5,
+          'grpc.service_config': JSON.stringify({
+            methodConfig: [{
+              name: [{ service: 'goog.gdc.security.pki.v1.CertificateAuthorityService' }],
+              retryPolicy,
+            }],
+            retryThrottling: DEFAULT_GRPC_RETRY_THROTTLING,
+          }),
+        };
+      }
+      this.grpcClient = new pkiProto.CertificateAuthorityService(targetUrl, credentials, channelOptions);
       this.stsAuthParams.targetAudience = this.config.casProxyUrl;
     }
 
@@ -465,7 +509,10 @@ export class CASClient {
         const deadline = new Date(Date.now() + timeoutMs);
         this.grpcClient.CreateCertificateRequest(grpcReq, metadata, { deadline }, (err, response) => {
           if (err) {
-            return reject(new Error(`gRPC CreateCertificateRequest failed: ${err.message}`));
+            const wrappedError = new Error(`gRPC CreateCertificateRequest failed: ${err.message}`);
+            // Expose the gRPC status code so callers can classify the failure
+            wrappedError.code = err.code;
+            return reject(wrappedError);
           }
 
           let tlsCrtStr, caCertStr;
@@ -626,7 +673,10 @@ export class CASClient {
 
         this.grpcClient.CreateRevokeCertificateRequest(grpcReq, metadata, { deadline }, (err, response) => {
           if (err) {
-            return reject(new Error(`gRPC CreateRevokeCertificateRequest failed: ${err.message}`));
+            // Expose the gRPC status code (see createCertificateRequest above).
+            const wrappedError = new Error(`gRPC CreateRevokeCertificateRequest failed: ${err.message}`);
+            wrappedError.code = err.code;
+            return reject(wrappedError);
           }
 
           let certStr;

@@ -49,6 +49,24 @@ export interface CASClientConfig {
   useGrpc?: boolean;
   /** Optional. The URL of the CAS proxy. If useGrpc is true and this is not provided, it is automatically derived from the service account's token URI. */
   casProxyUrl?: string;
+  /** Optional (gRPC mode only). Set to false to disable the built-in gRPC retry policy. Defaults to true. */
+  grpcRetries?: boolean;
+  /** Optional (gRPC mode only). Overrides fields of the default gRPC retry policy (merged with defaults). Ignored if grpcRetries is false. */
+  grpcRetryPolicy?: Partial<GrpcRetryPolicy>;
+}
+
+/** A gRPC retry policy (see the gRPC service config / gRFC A6). */
+export interface GrpcRetryPolicy {
+  /** Maximum call attempts, including the original (>= 2). */
+  maxAttempts: number;
+  /** Initial backoff before the first retry as a protobuf Duration string in seconds ending with "s" (e.g. "0.1s"; values like "100ms" throw a validation error during init()). */
+  initialBackoff: string;
+  /** Maximum backoff between retries as a protobuf Duration string in seconds ending with "s" (e.g. "1s"; values like "1000ms" throw a validation error during init()). */
+  maxBackoff: string;
+  /** Multiplier applied to the backoff after each attempt. */
+  backoffMultiplier: number;
+  /** gRPC status code names that trigger a retry, e.g. "UNAVAILABLE", "RESOURCE_EXHAUSTED". */
+  retryableStatusCodes: string[];
 }
 
 export enum RevocationReason {
