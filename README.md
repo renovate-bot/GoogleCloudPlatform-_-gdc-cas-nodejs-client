@@ -1,10 +1,10 @@
-# Google Distributed Cloud Node.js Client Libraries (`gdc-node`)
+# Google Distributed Cloud Air-gapped CAS Node.js Client (`gdc-cas-nodejs-client`)
 
-`gdc-node` provides Node.js client libraries and testing utilities for interacting with Google Distributed Cloud air-gapped (GDC) services.
+`gdc-cas-nodejs-client` provides the Node.js client library (`gdc-cas`) and testing utilities for interacting with the Google Distributed Cloud air-gapped (GDCag) Certificate Authority Service (CAS).
 
 ## Overview
 
-This repository contains client modules and developer utilities designed for enterprise workloads running on or integrating with GDC:
+This repository contains the CAS client module and developer utilities designed for enterprise workloads integrating with GDC air-gapped CAS:
 
 * **[`gdc-cas`](./cas/gdc-cas)**: A Node.js client library for the Google Distributed Cloud air-gapped Certificate Authority Service (CAS). Supports RFC 8693 Security Token Service (STS) authentication, Kubernetes Resource Model (KRM) custom resources (`CertificateRequest`, `CertificateAuthority`, `RevokeCertificateRequest`), and direct gRPC dataplane communication.
 * **[Load Test & Examples](./cas)**: Sample scripts and high-performance load testing utilities for validating Certificate Authority Service issuing and revocation throughput.
@@ -12,7 +12,9 @@ This repository contains client modules and developer utilities designed for ent
 ## Repository Structure
 
 ```
-gdc-node/
+gdc-cas-nodejs-client/
+├── .github/
+│   └── CODEOWNERS            # Repository code owners
 ├── cas/
 │   ├── gdc-cas/              # The 'gdc-cas' npm package source
 │   │   ├── cas-client.js     # CAS client implementation (KRM & gRPC)
@@ -64,7 +66,7 @@ For full documentation, advanced options (connection pooling, custom HTTP middle
 
 ## Prerequisites
 
-To interact with GDC services using this library, you will need:
+To interact with GDC air-gapped CAS using this library, you will need:
 
 1. A project created in your GDC organization.
 2. A service account key JSON file with appropriate permissions (e.g. `certificate-authority-service-admin`).
