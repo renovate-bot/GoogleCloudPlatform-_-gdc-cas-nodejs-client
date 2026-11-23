@@ -236,11 +236,16 @@ export class CASClient {
         credentials = grpc.credentials.createSsl();
       }
       const targetUrl = this.config.casProxyUrl.replace(/^https?:\/\//, '');
+      const channelOptions = {
+        // Keepalive pings keep the HTTP/2 connection alive during idle periods
+        'grpc.keepalive_time_ms': 30000,
+        'grpc.keepalive_timeout_ms': 5000,
+        'grpc.keepalive_permit_without_calls': 1,
+      };
       // Retries are on by default; set config.grpcRetries to false to disable them
       // completely (NO_RETRY), or pass config.grpcRetryPolicy to override individual fields.
-      let channelOptions;
       if (this.config.grpcRetries === false) {
-        channelOptions = { 'grpc.enable_retries': 0 };
+        channelOptions['grpc.enable_retries'] = 0;
       } else {
         const retryPolicyOverrides = this.config.grpcRetryPolicy
           ? Object.fromEntries(
@@ -248,20 +253,18 @@ export class CASClient {
             )
           : {};
         const retryPolicy = { ...DEFAULT_GRPC_RETRY_POLICY, ...retryPolicyOverrides };
-        channelOptions = {
-          'grpc.enable_retries': 1,
-          // Raise gRFC A6's default cap of 5 attempts when a higher maxAttempts is requested.
-          'grpc-node.retry_max_attempts_limit': Number.isInteger(retryPolicy.maxAttempts)
-            ? Math.max(5, retryPolicy.maxAttempts)
-            : 5,
-          'grpc.service_config': JSON.stringify({
-            methodConfig: [{
-              name: [{ service: 'goog.gdc.security.pki.v1.CertificateAuthorityService' }],
-              retryPolicy,
-            }],
-            retryThrottling: DEFAULT_GRPC_RETRY_THROTTLING,
-          }),
-        };
+        channelOptions['grpc.enable_retries'] = 1;
+        // Raise gRFC A6's default cap of 5 attempts when a higher maxAttempts is requested.
+        channelOptions['grpc-node.retry_max_attempts_limit'] = Number.isInteger(retryPolicy.maxAttempts)
+          ? Math.max(5, retryPolicy.maxAttempts)
+          : 5;
+        channelOptions['grpc.service_config'] = JSON.stringify({
+          methodConfig: [{
+            name: [{ service: 'goog.gdc.security.pki.v1.CertificateAuthorityService' }],
+            retryPolicy,
+          }],
+          retryThrottling: DEFAULT_GRPC_RETRY_THROTTLING,
+        });
       }
       this.grpcClient = new pkiProto.CertificateAuthorityService(targetUrl, credentials, channelOptions);
       this.stsAuthParams.targetAudience = this.config.casProxyUrl;
