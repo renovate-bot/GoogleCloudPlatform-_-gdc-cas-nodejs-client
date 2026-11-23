@@ -1,0 +1,18 @@
+Google Distributed Cloud (GDC) Node.js Client Libraries
+Copyright 2025-2026 Google LLC
+
+This product includes software developed at
+Google LLC (https://www.google.com/).
+
+-------------------------------------------------------------------------------
+Third-Party Software Notices and Attributions
+-------------------------------------------------------------------------------
+
+Protocol Buffers (google/protobuf/timestamp.proto)
+https://github.com/protocolbuffers/protobuf
+Copyright 2008 Google Inc.
+Licensed under the BSD-3-Clause License.
+
+The compiled protobuf JSON descriptor in cas/gdc-cas/proto/cas-json.js
+includes the google.protobuf.Timestamp message definition from Protocol
+Buffers.

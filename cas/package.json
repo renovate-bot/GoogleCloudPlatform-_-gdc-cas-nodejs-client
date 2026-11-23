@@ -1,0 +1,10 @@
+{
+  "main": "run-example.js",
+  "bin": "dist/run-example.cjs",
+  "type": "module",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "gdc-cas": "file:./gdc-cas",
+    "node-forge": "^1.3.1"
+  }
+}
